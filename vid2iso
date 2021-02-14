@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+usage() {
+	echo "Usage: $0 -i input video file -o iso directory destination -w work directory"
+	echo "Example: $0 -i sample.mkv -o ~"
+}
+work="/tmp/vid2isowork"
+output=.
+while getopts ":hw:i:o:k" opt; do
+        case $opt in 
+                w)
+                        work=$OPTARG
+                        ;; 
+                i)
+                        input=$OPTARG
+                        ;; 
+                o)
+			output=$OPTARG
+                        ;;
+                h)
+                        usage
+                        exit
+                        ;; 
+                \?)
+                        echo "unknown: $OPTARG"
+                        exit 1
+                        ;; 
+                :)
+                        echo "option -$OPTARG requires arguement"
+                        ;; 
+        esac
+done
+
+init() {
+	echo "init"
+	WORKDIR=$work
+	export VIDEO_FORMAT=NTSC
+	mkdir -vp "$WORKDIR"
+}
+
+convert() {
+	local MOVIENAME="$*"
+	local BASENAME=$(basename "$MOVIENAME")
+	local MPGNAME="${WORKDIR}/${BASENAME%.*}.mpg"
+	local DVDNAME="${WORKDIR}/${BASENAME%.*}/"
+	local ISONAME="${BASENAME%.*}.iso"
+	echo "basename:$BASENAME"
+	echo "mpgname:$MPGNAME"
+	echo "converting $MOVIENAME"
+	ffmpeg -i "$MOVIENAME" -target ntsc-dvd "$MPGNAME"
+	echo "dvdname:$DVDNAME"
+	dvdauthor -o "$DVDNAME" -t "$MPGNAME"
+	dvdauthor -o "$DVDNAME" -T
+	echo "isoname:$ISONAME"
+	mkisofs -dvd-video -o "$output/$ISONAME" "$DVDNAME"
+}
+
+endit() {
+	echo "ending it"
+	rm -rf $WORKDIR
+}
+
+if [ -z "$input" ]; then
+	echo "Need input video file"
+	usage
+	exit
+fi
+
+init
+convert $input
+endit
